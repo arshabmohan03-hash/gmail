@@ -1,7 +1,13 @@
-# api/send_email.py
-import json, os, smtplib
+
+# api/send-email.py
+import os, smtplib, json
+from flask import Flask, request, jsonify
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+
+app = Flask(__name__)
+
+SENDER_EMAIL = os.getenv("SENDER_EMAIL", "aarshikbro21@gmail.com")
 
 SENDER_EMAIL = "aarshikbro21@gmail.com"
 SENDER_PASSWORD = "Lumeth12#"  # 🔑 Replace with Gmail App Password
@@ -20,21 +26,17 @@ def _send_gmail(subject: str, message: str):
     server.sendmail(SENDER_EMAIL, RECEIVER_EMAIL, msg.as_string())
     server.quit()
 
-def handler(request):
-    # Vercel Python serverless signature
-    if request.method != "POST":
-        body = json.dumps({"error": "Use POST /api/send_email"})
-        return (body, 405, {"Content-Type": "application/json"})
-
+@app.post("/")  # <-- IMPORTANT: route is "/" for serverless function
+def send_email():
     try:
-        data = request.json() if callable(getattr(request, "json", None)) else json.loads(request.body or "{}")
+        data = request.get_json(force=True, silent=True) or {}
         subject = data.get("subject", "No Subject")
         message = data.get("message", "Hello!")
         if not SENDER_PASSWORD:
-            return (json.dumps({"error": "Missing SENDER_PASSWORD env (Gmail App Password)"}), 500, {"Content-Type": "application/json"})
-
+            return jsonify({"error": "Missing SENDER_PASSWORD env"}), 500
         _send_gmail(subject, message)
-        return (json.dumps({"status": "ok", "message": "Email sent"}), 200, {"Content-Type": "application/json"})
+        return jsonify({"status": "ok", "message": "Email sent"}), 200
     except Exception as e:
-        return (json.dumps({"status": "error", "message": str(e)}), 500, {"Content-Type": "application/json"})
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
